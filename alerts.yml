@@ -1,0 +1,17 @@
+groups:
+  - name: demo
+    rules:
+      - alert: DemoApiUnavailable
+        expr: up{job="demo-api"} == 0
+        for: 15s
+        labels:
+          severity: warning
+        annotations:
+          summary: Prometheus cannot scrape the demo API
+      - alert: DemoApiErrors
+        expr: sum(rate(demo_http_requests_total{status=~"5.."}[1m])) > 0
+        for: 10s
+        labels:
+          severity: warning
+        annotations:
+          summary: The demo API is returning HTTP 5xx responses

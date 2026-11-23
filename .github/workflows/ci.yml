@@ -1,0 +1,16 @@
+name: Monitoring smoke test
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t monitoring-demo:local .
+      - run: |
+          docker run -d --rm --name demo-api -p 127.0.0.1:8000:8000 monitoring-demo:local
+          trap 'docker stop demo-api' EXIT
+          curl --retry 10 --retry-connrefused --retry-delay 1 -fsS http://localhost:8000/healthz
+          ./smoke.sh
+      - run: docker run --rm --entrypoint /bin/promtool -v "${{ github.workspace }}:/work:ro" prom/prometheus:v3.4.2 check rules /work/alerts.yml

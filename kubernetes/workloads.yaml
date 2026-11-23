@@ -1,0 +1,125 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels: &id001
+      app: demo-api
+  template:
+    metadata:
+      labels: *id001
+    spec:
+      containers:
+      - name: demo-api
+        image: monitoring-demo:local
+        ports:
+        - containerPort: 8000
+        imagePullPolicy: IfNotPresent
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: demo-api
+spec:
+  selector:
+    app: demo-api
+  ports:
+  - port: 8000
+    targetPort: 8000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+spec:
+  replicas: 1
+  selector:
+    matchLabels: &id001
+      app: prometheus
+  template:
+    metadata:
+      labels: *id001
+    spec:
+      containers:
+      - name: prometheus
+        image: prom/prometheus:v3.4.2
+        ports:
+        - containerPort: 9090
+        args:
+        - --config.file=/etc/prometheus/prometheus.yml
+        - --storage.tsdb.path=/prometheus
+        volumeMounts:
+        - name: config
+          mountPath: /etc/prometheus
+          readOnly: true
+      volumes:
+      - name: config
+        configMap:
+          name: prometheus-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+spec:
+  selector:
+    app: prometheus
+  ports:
+  - port: 9090
+    targetPort: 9090
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+spec:
+  replicas: 1
+  selector:
+    matchLabels: &id001
+      app: grafana
+  template:
+    metadata:
+      labels: *id001
+    spec:
+      containers:
+      - name: grafana
+        image: grafana/grafana:12.0.2
+        ports:
+        - containerPort: 3000
+        volumeMounts:
+        - name: datasource
+          mountPath: /etc/grafana/provisioning/datasources
+          readOnly: true
+        - name: provider
+          mountPath: /etc/grafana/provisioning/dashboards
+          readOnly: true
+        - name: dashboard
+          mountPath: /var/lib/grafana/dashboards
+          readOnly: true
+      volumes:
+      - name: datasource
+        configMap:
+          name: grafana-datasource
+      - name: provider
+        configMap:
+          name: grafana-provider
+      - name: dashboard
+        configMap:
+          name: grafana-dashboard
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+spec:
+  selector:
+    app: grafana
+  ports:
+  - port: 3000
+    targetPort: 3000
